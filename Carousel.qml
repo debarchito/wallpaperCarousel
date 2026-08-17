@@ -20,9 +20,20 @@ Item {
     property bool hasWallpaperConfigured: true
     property string shellSettingsHint: "Open your shell settings → Wallpaper to configure a wallpaper directory."
 
+    // Screen hint for the noctalia v5 wrapper. The wrapper can't detect the focused screen itself.
+    // getFocusedScreen(hint) receives this; DMS and Noctalia v4 wrappers that do
+    // their own detection can simply ignore the argument.
+    property string pendingScreenName: ""
+
     signal wallpaperPicked(string fullPath, string screenName)
 
     readonly property var overlayScreen: overlay.screen  // wrappers can bind against this
+
+    // Wrappers that mirror the overlay's state elsewhere (the Noctalia v5 host
+    // reports it back to the shell so the Control Center shortcut can show
+    // whether the carousel is up) bind against this rather than reaching into
+    // the overlay window.
+    readonly property bool overlayVisible: overlay.visible
 
     // ── Derived settings with defaults ────────────────────────────────────────
     readonly property string wallpaperFolder: {
@@ -192,7 +203,9 @@ Item {
 
     function open() {
         carousel.initialFocusSet = false;
-        const focusedScreen = root.getFocusedScreen();
+        const screenHint = root.pendingScreenName;
+        root.pendingScreenName = "";
+        const focusedScreen = root.getFocusedScreen(screenHint);
         if (focusedScreen)
             overlay.screen = focusedScreen;
         overlay.visible = true;
@@ -225,6 +238,30 @@ Item {
         function close(): string    { if (overlay.visible) root.close(); return "closed"; }
         function cycleNext(): string     { return root.cycle(+1); }
         function cyclePrevious(): string { return root.cycle(-1); }
+
+        // Screen-targeted variants for the Noctalia v5 plugin, which is told the focused output by its caller.
+        function openOn(screenName: string): string {
+            root.pendingScreenName = screenName;
+            if (!overlay.visible) root.open();
+            return "opened";
+        }
+        function closeOn(screenName: string): string {
+            if (overlay.visible) root.close();
+            return "closed";
+        }
+        function toggleOn(screenName: string): string {
+            root.pendingScreenName = screenName;
+            root.toggle();
+            return overlay.visible ? "opened" : "closed";
+        }
+        function cycleNextOn(screenName: string): string {
+            root.pendingScreenName = screenName;
+            return root.cycle(+1);
+        }
+        function cyclePreviousOn(screenName: string): string {
+            root.pendingScreenName = screenName;
+            return root.cycle(-1);
+        }
     }
 
     // ── Fullscreen overlay window ─────────────────────────────────────────────
