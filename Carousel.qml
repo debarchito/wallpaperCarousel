@@ -3,7 +3,7 @@ import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import QtQuick.Effects
+import Quickshell.Widgets
 
 Item {
     id: root
@@ -16,7 +16,8 @@ Item {
     property var extraDirectories: []           // other directories to pre-scan/cache (Noctalia multi-monitor)
     property string wlrNamespace: "plugins:wallpaperCarousel"
     property var cfg: ({})                      // raw settings object from the host shell
-    property var getFocusedScreen: () => null   // () => Screen | null
+    property var getFocusedScreen: () => null
+    // () => Screen | null
     property bool hasWallpaperConfigured: true
     property string shellSettingsHint: "Open your shell settings → Wallpaper to configure a wallpaper directory."
 
@@ -44,7 +45,8 @@ Item {
     readonly property string _carouselMode: cfg.carouselMode ?? "wrap"
     readonly property bool _isInfinite: _carouselMode === "infinite"
     readonly property bool _wrapsIndex: _carouselMode !== "standard"
-    on_CarouselModeChanged: if (_initialSyncDone) Qt.callLater(_syncStableModel)
+    on_CarouselModeChanged: if (_initialSyncDone)
+        Qt.callLater(_syncStableModel)
 
     readonly property var _currentView: (_isInfinite && !carousel.searchActive) ? pathView : listView
     readonly property string wallpaperFolderUrl: "file://" + wallpaperFolder
@@ -55,10 +57,7 @@ Item {
     property int _currentCacheIndex: -1
     property var _cacheEntries: []
 
-    readonly property var _nameFilters: [
-        "*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif",
-        "*.bmp", "*.jxl", "*.avif", "*.heif", "*.exr"
-    ]
+    readonly property var _nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.bmp", "*.jxl", "*.avif", "*.heif", "*.exr"]
 
     onCurrentWallpaperPathChanged: {
         if (folderModel.status === FolderListModel.Ready && folderModel.count > 0) {
@@ -79,8 +78,12 @@ Item {
         root._initialSyncDone = false;
     }
 
-    ListModel { id: stableModel }
-    ListModel { id: filteredModel }
+    ListModel {
+        id: stableModel
+    }
+    ListModel {
+        id: filteredModel
+    }
 
     Timer {
         id: modelSyncTimer
@@ -112,14 +115,15 @@ Item {
         for (var i = 0; i < model.count; i++)
             entries.push({
                 fileName: model.get(i, "fileName"),
-                fileUrl:  model.get(i, "fileUrl").toString()
+                fileUrl: model.get(i, "fileUrl").toString()
             });
         return entries;
     }
 
     function _findCurrentIndex() {
         const fileName = (root.currentWallpaperPath || "").split('/').pop();
-        if (!fileName) return 0;
+        if (!fileName)
+            return 0;
         for (let i = 0; i < folderModel.count; i++) {
             if (folderModel.get(i, "fileName") === fileName)
                 return i;
@@ -129,7 +133,10 @@ Item {
 
     function _rebuildCacheEntries() {
         const count = folderModel.count;
-        if (count === 0) { root._cacheEntries = []; return; }
+        if (count === 0) {
+            root._cacheEntries = [];
+            return;
+        }
         const center = root._currentCacheIndex >= 0 ? root._currentCacheIndex : root._findCurrentIndex();
         const radius = Math.floor(((root.cfg.cacheSize !== undefined) ? parseInt(root.cfg.cacheSize) : 200) / 2);
         const start = Math.max(0, center - radius);
@@ -143,8 +150,7 @@ Item {
     function _populateStableModel(entries) {
         const activeView = root._currentView;
         const savedIndex = activeView.currentIndex;
-        const savedFile = (savedIndex >= 0 && savedIndex < stableModel.count)
-            ? stableModel.get(savedIndex).fileName : "";
+        const savedFile = (savedIndex >= 0 && savedIndex < stableModel.count) ? stableModel.get(savedIndex).fileName : "";
 
         stableModel.clear();
         for (let i = 0; i < entries.length; i++)
@@ -185,9 +191,7 @@ Item {
         const text = carousel._searchText.toLowerCase();
         const allEntries = root._folderCache[root.wallpaperFolder] || [];
         filteredModel.clear();
-        const entries = text.length === 0
-            ? allEntries
-            : allEntries.filter(e => e.fileName.toLowerCase().indexOf(text) !== -1);
+        const entries = text.length === 0 ? allEntries : allEntries.filter(e => e.fileName.toLowerCase().indexOf(text) !== -1);
         for (let i = 0; i < entries.length; i++)
             filteredModel.append(entries[i]);
         if (filteredModel.count > 0 && carousel.searchActive) {
@@ -198,7 +202,10 @@ Item {
 
     // ── Public API ────────────────────────────────────────────────────────────
     function toggle() {
-        if (overlay.visible) close(); else open();
+        if (overlay.visible)
+            close();
+        else
+            open();
     }
 
     function open() {
@@ -225,28 +232,47 @@ Item {
             open();
             return "opened:" + v.currentIndex;
         }
-        if (direction > 0) v.incrementCurrentIndex();
-        else v.decrementCurrentIndex();
+        if (direction > 0)
+            v.incrementCurrentIndex();
+        else
+            v.decrementCurrentIndex();
         return "index:" + v.currentIndex;
     }
 
     // ── IPC (Quickshell — available on both DMS and Noctalia) ─────────────────
     IpcHandler {
         target: "wallpaperCarousel"
-        function toggle(): string   { root.toggle(); return overlay.visible ? "opened" : "closed"; }
-        function open(): string     { if (!overlay.visible) root.open(); return "opened"; }
-        function close(): string    { if (overlay.visible) root.close(); return "closed"; }
-        function cycleNext(): string     { return root.cycle(+1); }
-        function cyclePrevious(): string { return root.cycle(-1); }
+        function toggle(): string {
+            root.toggle();
+            return overlay.visible ? "opened" : "closed";
+        }
+        function open(): string {
+            if (!overlay.visible)
+                root.open();
+            return "opened";
+        }
+        function close(): string {
+            if (overlay.visible)
+                root.close();
+            return "closed";
+        }
+        function cycleNext(): string {
+            return root.cycle(+1);
+        }
+        function cyclePrevious(): string {
+            return root.cycle(-1);
+        }
 
         // Screen-targeted variants for the Noctalia v5 plugin, which is told the focused output by its caller.
         function openOn(screenName: string): string {
             root.pendingScreenName = screenName;
-            if (!overlay.visible) root.open();
+            if (!overlay.visible)
+                root.open();
             return "opened";
         }
         function closeOn(screenName: string): string {
-            if (overlay.visible) root.close();
+            if (overlay.visible)
+                root.close();
             return "closed";
         }
         function toggleOn(screenName: string): string {
@@ -275,13 +301,22 @@ Item {
         WlrLayershell.exclusiveZone: -1
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-        anchors { top: true; left: true; right: true; bottom: true }
+        anchors {
+            top: true
+            left: true
+            right: true
+            bottom: true
+        }
 
         Rectangle {
             anchors.fill: parent
             color: "#CC000000"
             opacity: overlay.visible ? carousel.overlayOpacity / 100 : 0
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
         }
 
         MouseArea {
@@ -295,7 +330,11 @@ Item {
             id: carousel
             anchors.fill: parent
             opacity: overlay.visible ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
 
             property bool initialFocusSet: false
             property string _searchText: ""
@@ -303,7 +342,8 @@ Item {
             property bool searchVisible: false
 
             function tryFocus() {
-                if (initialFocusSet) return;
+                if (initialFocusSet)
+                    return;
 
                 let targetIndex = 0;
                 const currentFile = (root.currentWallpaperPath || "").split('/').pop();
@@ -329,9 +369,9 @@ Item {
                 holdTimer.start();
             }
 
-            readonly property int itemWidth:    parseInt(root.cfg.itemWidth)  || 300
-            readonly property int itemHeight:   parseInt(root.cfg.itemHeight) || 420
-            readonly property int borderWidth:  (root.cfg.borderWidth  !== undefined) ? parseInt(root.cfg.borderWidth)  : 3
+            readonly property int itemWidth: parseInt(root.cfg.itemWidth) || 300
+            readonly property int itemHeight: parseInt(root.cfg.itemHeight) || 420
+            readonly property int borderWidth: (root.cfg.borderWidth !== undefined) ? parseInt(root.cfg.borderWidth) : 3
             readonly property int overlayOpacity: (root.cfg.overlayOpacity !== undefined) ? parseInt(root.cfg.overlayOpacity) : 80
             readonly property int cornerRadius: (root.cfg.cornerRadius !== undefined) ? parseInt(root.cfg.cornerRadius) : 0
             readonly property bool enableRounding: cornerRadius > 0
@@ -400,7 +440,8 @@ Item {
                     readonly property int distFromCenter: {
                         if (_effectivelyInfinite) {
                             const n = stableModel.count;
-                            if (n <= 1) return 0;
+                            if (n <= 1)
+                                return 0;
                             const d = Math.abs(index - pathView.currentIndex);
                             return Math.min(d, n - d);
                         }
@@ -410,13 +451,15 @@ Item {
                     readonly property real falloff: 1.0 / (1.0 + distFromCenter * distFromCenter)
 
                     readonly property real _dupeFade: {
-                        if (!_effectivelyInfinite) return 1.0;
+                        if (!_effectivelyInfinite)
+                            return 1.0;
                         const base = carousel._baseWallpaperCount;
-                        if (base <= 0 || base >= stableModel.count) return 1.0;
+                        if (base <= 0 || base >= stableModel.count)
+                            return 1.0;
                         const n = stableModel.count;
                         const cur = pathView.currentIndex;
                         const wpOffset = ((index % base) - (cur % base) + base) % base;
-                        const leftCount  = Math.floor(base / 2);
+                        const leftCount = Math.floor(base / 2);
                         const rightCount = Math.floor((base - 1) / 2);
                         let target;
                         if (wpOffset === 0)
@@ -433,7 +476,8 @@ Item {
                     z: carousel.confirmingIndex === index ? 100 : isCurrent ? 10 : Math.max(1, 10 - distFromCenter)
 
                     function pickWallpaper() {
-                        if (carousel.confirmingIndex >= 0) return;
+                        if (carousel.confirmingIndex >= 0)
+                            return;
                         carousel.confirmPick(index, root.wallpaperFolder + "/" + fileName);
                     }
 
@@ -446,20 +490,25 @@ Item {
                         onClicked: delegateRoot.pickWallpaper()
                     }
 
-                    readonly property real extraSpace:     carousel.itemWidth * carousel.expandMultiplier - carousel.itemWidth
+                    readonly property real extraSpace: carousel.itemWidth * carousel.expandMultiplier - carousel.itemWidth
                     readonly property real heldExtraSpace: carousel.width * carousel.holdExpandRatio - carousel.itemWidth
 
                     readonly property real visualXOffset: {
-                        if (!carousel.expandSelected && carousel.heldIndex < 0) return 0;
-                        if (carousel.heldIndex === index) return 0;
-                        if (distFromCenter === 0) return 0;
+                        if (!carousel.expandSelected && carousel.heldIndex < 0)
+                            return 0;
+                        if (carousel.heldIndex === index)
+                            return 0;
+                        if (distFromCenter === 0)
+                            return 0;
                         const space = (carousel.heldIndex >= 0) ? heldExtraSpace : extraSpace;
                         let signedDist = 0;
                         if (_effectivelyInfinite) {
                             let d = index - pathView.currentIndex;
                             const h = stableModel.count / 2;
-                            if (d > h) d -= stableModel.count;
-                            else if (d < -h) d += stableModel.count;
+                            if (d > h)
+                                d -= stableModel.count;
+                            else if (d < -h)
+                                d += stableModel.count;
                             signedDist = d;
                         } else {
                             signedDist = index - listView.currentIndex;
@@ -475,49 +524,60 @@ Item {
                         readonly property bool isConfirmed: carousel.confirmingIndex === delegateRoot.index
                         readonly property bool isHeld: carousel.heldIndex === delegateRoot.index
 
-                        width:  isHeld ? (carousel.width  * carousel.holdExpandRatio) : ((carousel.expandSelected && isCurrent) ? (carousel.itemWidth * carousel.expandMultiplier) : carousel.itemWidth)
+                        width: isHeld ? (carousel.width * carousel.holdExpandRatio) : ((carousel.expandSelected && isCurrent) ? (carousel.itemWidth * carousel.expandMultiplier) : carousel.itemWidth)
                         height: isHeld ? (carousel.height * carousel.holdExpandRatio) : parent.height
 
-                        Behavior on anchors.horizontalCenterOffset { NumberAnimation { duration: 400; easing.type: Easing.InOutCubic } }
-                        Behavior on width  { NumberAnimation { duration: 400; easing.type: Easing.InOutCubic } }
-                        Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.InOutCubic } }
+                        Behavior on anchors.horizontalCenterOffset {
+                            NumberAnimation {
+                                duration: 400
+                                easing.type: Easing.InOutCubic
+                            }
+                        }
+                        Behavior on width {
+                            NumberAnimation {
+                                duration: 400
+                                easing.type: Easing.InOutCubic
+                            }
+                        }
+                        Behavior on height {
+                            NumberAnimation {
+                                duration: 400
+                                easing.type: Easing.InOutCubic
+                            }
+                        }
 
                         readonly property bool isOtherConfirming: carousel.confirmingIndex >= 0 && !isConfirmed
                         readonly property bool isHovered: delegateMouseArea.containsMouse && carousel.confirmingIndex < 0
 
-                        readonly property real baseScale:  0.75
+                        readonly property real baseScale: 0.75
                         readonly property real scaleRange: carousel.selectedScale - 0.75
 
-                        scale:   isConfirmed ? 1.6 : isOtherConfirming ? (baseScale + scaleRange * delegateRoot.falloff) * 0.8 : isHovered ? baseScale + (scaleRange + 0.20) * delegateRoot.falloff : baseScale + scaleRange * delegateRoot.falloff
+                        scale: isConfirmed ? 1.6 : isOtherConfirming ? (baseScale + scaleRange * delegateRoot.falloff) * 0.8 : isHovered ? baseScale + (scaleRange + 0.20) * delegateRoot.falloff : baseScale + scaleRange * delegateRoot.falloff
                         opacity: (isConfirmed ? 0.0 : isOtherConfirming ? 0.0 : isHovered ? 1.0 : 0.1 + 0.9 * delegateRoot.falloff) * delegateRoot._dupeFade
                         layer.enabled: opacity < 1 && opacity > 0 && !isConfirmed
 
-                        Behavior on scale   { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-                        Behavior on opacity { NumberAnimation { duration: 300 } }
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 300
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 300
+                            }
+                        }
 
                         transform: Matrix4x4 {
                             property real s: carousel.skewFactor
-                            matrix: Qt.matrix4x4(1, s, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1)
+                            matrix: Qt.matrix4x4(1, s, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
                         }
 
-                        Item {
+                        ClippingRectangle {
                             anchors.fill: parent
-
-                            Rectangle {
-                                id: cornerMask
-                                width: parent.width; height: parent.height
-                                radius: carousel.cornerRadius
-                                visible: false
-                                layer.enabled: true
-                            }
-
-                            layer.enabled: carousel.enableRounding
-                            layer.effect: MultiEffect {
-                                maskEnabled: true
-                                maskSource: cornerMask
-                                maskSpreadAtMin: 1.0
-                                maskThresholdMin: 0.5
-                            }
+                            color: "transparent"
+                            radius: carousel.enableRounding ? carousel.cornerRadius : 0
+                            antialiasing: carousel.enableRounding
 
                             Image {
                                 anchors.fill: parent
@@ -533,7 +593,10 @@ Item {
                                 anchors.margins: carousel.borderWidth
                                 visible: innerImage.status === Image.Ready
 
-                                Rectangle { anchors.fill: parent; color: "black" }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "black"
+                                }
                                 clip: true
 
                                 Image {
@@ -549,7 +612,7 @@ Item {
 
                                     transform: Matrix4x4 {
                                         property real s: -carousel.skewFactor
-                                        matrix: Qt.matrix4x4(1, s, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1)
+                                        matrix: Qt.matrix4x4(1, s, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
                                     }
                                 }
                             }
@@ -580,19 +643,26 @@ Item {
                 focus: root._isInfinite && !carousel.searchVisible && overlay.visible
 
                 Keys.onPressed: event => {
-                    if (carousel.confirmingIndex >= 0) { event.accepted = true; return; }
+                    if (carousel.confirmingIndex >= 0) {
+                        event.accepted = true;
+                        return;
+                    }
                     if (event.key === Qt.Key_Escape) {
-                        root.close(); event.accepted = true;
+                        root.close();
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {
                         carousel.searchVisible = true;
                         searchInput.forceActiveFocus();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                        decrementCurrentIndex(); event.accepted = true;
+                        decrementCurrentIndex();
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                        incrementCurrentIndex(); event.accepted = true;
+                        incrementCurrentIndex();
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        if (currentItem) currentItem.pickWallpaper();
+                        if (currentItem)
+                            currentItem.pickWallpaper();
                         event.accepted = true;
                     }
                 }
@@ -604,7 +674,7 @@ Item {
                 }
 
                 readonly property real _pathLen: pathItemCount * carousel.itemWidth
-                readonly property real _pathX0:  (width - _pathLen) / 2
+                readonly property real _pathX0: (width - _pathLen) / 2
                 path: Path {
                     startX: pathView._pathX0
                     startY: pathView.height / 2 - carousel.itemHeight / 2
@@ -631,34 +701,45 @@ Item {
 
                 highlightRangeMode: ListView.StrictlyEnforceRange
                 preferredHighlightBegin: (width / 2) - (carousel.itemWidth / 2)
-                preferredHighlightEnd:   (width / 2) + (carousel.itemWidth / 2)
+                preferredHighlightEnd: (width / 2) + (carousel.itemWidth / 2)
 
                 highlightMoveDuration: carousel.initialFocusSet ? 150 : 0
 
                 focus: !root._isInfinite && !carousel.searchVisible && overlay.visible
 
                 Keys.onPressed: event => {
-                    if (carousel.confirmingIndex >= 0) { event.accepted = true; return; }
+                    if (carousel.confirmingIndex >= 0) {
+                        event.accepted = true;
+                        return;
+                    }
                     if (event.key === Qt.Key_Escape) {
-                        root.close(); event.accepted = true;
+                        root.close();
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {
                         carousel.searchVisible = true;
                         searchInput.forceActiveFocus();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                        if (currentIndex > 0) decrementCurrentIndex();
-                        else if (root._wrapsIndex) currentIndex = count - 1;
+                        if (currentIndex > 0)
+                            decrementCurrentIndex();
+                        else if (root._wrapsIndex)
+                            currentIndex = count - 1;
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                        if (currentIndex < count - 1) incrementCurrentIndex();
-                        else if (root._wrapsIndex) currentIndex = 0;
+                        if (currentIndex < count - 1)
+                            incrementCurrentIndex();
+                        else if (root._wrapsIndex)
+                            currentIndex = 0;
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Home) {
-                        currentIndex = 0; event.accepted = true;
+                        currentIndex = 0;
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_End) {
-                        currentIndex = count - 1; event.accepted = true;
+                        currentIndex = count - 1;
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        if (currentItem) currentItem.pickWallpaper();
+                        if (currentItem)
+                            currentItem.pickWallpaper();
                         event.accepted = true;
                     }
                 }
@@ -695,7 +776,11 @@ Item {
                 border.color: searchInput.activeFocus ? "#AAFFFFFF" : "#44FFFFFF"
                 border.width: 1
 
-                Behavior on border.color { ColorAnimation { duration: 150 } }
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+                }
 
                 Text {
                     anchors.fill: parent
@@ -740,7 +825,8 @@ Item {
                             event.accepted = true;
                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                             const v = root._currentView;
-                            if (v.currentItem) v.currentItem.pickWallpaper();
+                            if (v.currentItem)
+                                v.currentItem.pickWallpaper();
                             event.accepted = true;
                         }
                     }
@@ -757,17 +843,23 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Directory not found"
-                font.pixelSize: 24; font.bold: true; color: "white"
+                font.pixelSize: 24
+                font.bold: true
+                color: "white"
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "The configured directory '" + (root.cfg.wallpaperDirectory ?? "") + "' does not exist.\nCheck the path in Wallpaper Carousel settings."
-                font.pixelSize: 14; color: "#BBBBBB"; horizontalAlignment: Text.AlignHCenter; lineHeight: 1.4
+                font.pixelSize: 14
+                color: "#BBBBBB"
+                horizontalAlignment: Text.AlignHCenter
+                lineHeight: 1.4
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Press Escape to close"
-                font.pixelSize: 12; color: "#888888"
+                font.pixelSize: 12
+                color: "#888888"
             }
         }
 
@@ -780,19 +872,23 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.hasWallpaperConfigured ? "No images found in wallpaper folder" : "No wallpaper configured"
-                font.pixelSize: 24; font.bold: true; color: "white"
+                font.pixelSize: 24
+                font.bold: true
+                color: "white"
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: root.hasWallpaperConfigured
-                    ? "The folder '" + root.wallpaperFolder + "' is empty.\nAdd images or choose a different wallpaper directory."
-                    : root.shellSettingsHint
-                font.pixelSize: 14; color: "#BBBBBB"; horizontalAlignment: Text.AlignHCenter; lineHeight: 1.4
+                text: root.hasWallpaperConfigured ? "The folder '" + root.wallpaperFolder + "' is empty.\nAdd images or choose a different wallpaper directory." : root.shellSettingsHint
+                font.pixelSize: 14
+                color: "#BBBBBB"
+                horizontalAlignment: Text.AlignHCenter
+                lineHeight: 1.4
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Press Escape to close"
-                font.pixelSize: 12; color: "#888888"
+                font.pixelSize: 12
+                color: "#888888"
             }
         }
     }
@@ -802,21 +898,27 @@ Item {
         id: cacheWindow
         visible: true
         color: "transparent"
-        implicitWidth: 1; implicitHeight: 1
+        implicitWidth: 1
+        implicitHeight: 1
 
         WlrLayershell.namespace: root.wlrNamespace + ":precache"
         WlrLayershell.layer: WlrLayershell.Background
         WlrLayershell.exclusiveZone: 0
-        anchors { top: true; left: true }
+        anchors {
+            top: true
+            left: true
+        }
 
         Item {
-            width: 1; height: 1
+            width: 1
+            height: 1
             clip: true
 
             Repeater {
                 model: root._cacheEntries
                 Image {
-                    width: carousel.itemWidth; height: carousel.itemHeight
+                    width: carousel.itemWidth
+                    height: carousel.itemHeight
                     asynchronous: true
                     source: modelData
                     sourceSize: Qt.size(carousel.itemWidth, carousel.itemHeight)
@@ -847,7 +949,8 @@ Item {
                     Repeater {
                         model: extraFolderModel
                         Image {
-                            width: carousel.itemWidth; height: carousel.itemHeight
+                            width: carousel.itemWidth
+                            height: carousel.itemHeight
                             asynchronous: true
                             source: fileUrl
                             sourceSize: Qt.size(carousel.itemWidth, carousel.itemHeight)
