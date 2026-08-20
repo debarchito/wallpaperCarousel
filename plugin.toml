@@ -1,6 +1,6 @@
 id = "yngwe/wallpaperCarousel"
 name = "Wallpaper Carousel"
-version = "0.9.0"
+version = "0.8.4"
 plugin_api = 17
 author = "yngwe"
 license = "BSD-3-Clause"
